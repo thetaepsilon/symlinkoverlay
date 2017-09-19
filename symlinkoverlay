@@ -78,7 +78,9 @@ trymkdir() {
 }
 
 # some constant path names that will be referenced a lot below.
-pathname_sourcelinks=".linkfarm.source"
+pathname_prefix=".linkfarm.";
+pathname_sourcelinks="${pathname_prefix}source"
+pathname_ignore="${pathname_prefix}ignore";
 
 # creates the top-level source links needed below
 createmasterlinks() {
@@ -140,7 +142,7 @@ handledir() {
 			case "$entryname" in
 			.)	continue;;
 			..)	continue;;
-			.linkfarm.*)
+			${pathname_prefix}*)
 				continue;;
 			esac
 
@@ -164,10 +166,10 @@ handledir() {
 						if ! checksource "${targetdir}" "${source}"; then {
 							fatal "$source was not in source set!";
 						}; fi;
-						tryln "./${symlinkrel}/.linkfarm.source/${source}/${pathrel}/${entryname}" "${currenttarget}/${entryname}";
+						tryln "./${symlinkrel}/${pathname_sourcelinks}/${source}/${pathrel}/${entryname}" "${currenttarget}/${entryname}";
 					}; else {
 						log trace "making note of blanking entry";
-						local ignoredir="${currenttarget}/.linkfarm.ignore";
+						local ignoredir="${currenttarget}/${pathname_ignore}";
 						trymkdirdup "${ignoredir}";
 						trytouch "${ignoredir}/${entryname}";
 					}; fi;
