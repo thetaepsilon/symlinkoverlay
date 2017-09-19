@@ -81,6 +81,7 @@ trymkdir() {
 pathname_prefix=".linkfarm.";
 pathname_sourcelinks="${pathname_prefix}source"
 pathname_ignore="${pathname_prefix}ignore";
+pathname_autosource="${pathname_prefix}autosource";
 
 # creates the top-level source links needed below
 createmasterlinks() {
@@ -179,6 +180,11 @@ handledir() {
 			}; fi;
 		}; done;
 	) || exit $?;
+
+	# now check if there is an autosource entry in place and generate entries as appropriate.
+	if test -e "${currentconfig}/${pathname_autosource}"; then {
+		log warning "current directory ${pathrel} requested autosource generation, stub!";
+	}; fi;
 
 	log trace "-- handling directory ${pathrel} complete";
 }
