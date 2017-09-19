@@ -1,0 +1,11 @@
+#!/bin/sh
+# shellcheck excludes wrapper for symlinkoverlay
+clear;
+# SC2039 is to shut up about the "local" keyword:
+# technically a bash-ism, but the recursion done in shellcheckoverlay is simply impossible without it.
+# SC2154 is about unassigned vars - the try* functions sometimes assign global vars,
+# to allow e.g. tryread() to return a result in a specified env var.
+shellcheck \
+	-e SC2039 \
+	-e SC2154 \
+	symlinkoverlay;
