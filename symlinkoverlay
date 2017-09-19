@@ -44,13 +44,77 @@ validateopts() {
 
 # UNFINISHED just debugging
 tryln() {
-	log trace "$2" " points to " "$1";
+	log trace "creating symlink: " "$2" "points to" "$1";
+	ln -s "$1" "$2" || fatal "unable to create symlink!";
 }
 
 handleclean() {
 	if test -n "$cleanmode"; then {
 		log warning "cleaning target dir requested, stub!"
 	}; fi;
+}
+
+tryread() {
+	local path="$1";
+	local target="$2";
+	local result;
+	log trace "tryread() requested for " "$path";
+	result=$(cat "$path") || fatal "unable to read config data file $1";
+	eval "$target=$result";
+}
+
+trytouch() {
+	local path="$1";
+	log trace "creating blank file at ${path}";
+	touch "$path" || fatal "unable to create blank file at $path";
+}
+
+trymkdirdup() {
+	mkdir -p "$1" || fatal "unable to create directory at $path";
+}
+
+trymkdir() {
+	mkdir "$1" || fatal "unable to create directory at $path";
+}
+
+# some constant path names that will be referenced a lot below.
+pathname_sourcelinks=".linkfarm.source"
+
+# creates the top-level source links needed below
+createmasterlinks() {
+	log trace "-- createmasterlinks() entry";
+	local sourcelinkdir="$1";
+	local targetdir="$2";
+	log trace "-- source link dir is ${sourcelinkdir}";
+	log trace "-- target output dir is ${targetdir}";
+	local linkoutput="${targetdir}/${pathname_sourcelinks}";
+	trymkdir "${linkoutput}";
+	log trace "-- link output directory is ${linkoutput}";
+	ls -1U "${sourcelinkdir}" | (
+		IFS='
+';
+		while read -r sourcename; do {
+			local linkfile="${linkoutput}/${sourcename}";
+			log trace "setting up source $sourcename as ${linkfile}";
+			tryread "${sourcelinkdir}/${sourcename}" sourcepath;
+			tryln "${sourcepath}" "${linkfile}";
+		}; done;
+	) || exit $?;
+	log trace "-- createmasterlinks() complete";
+}
+
+# check if a source label is valid by checking for the links as created above
+checksource() {
+	local targetpath="$1";
+	local sourcename="$2";
+	test -h "${targetpath}/${pathname_sourcelinks}/${sourcename}";
+	local result=$?;
+	if test "$result" -eq 0; then {
+		log trace "source label ${sourcename} checked successfully";
+	}; else {
+		log error "source link for ${sourcename} does not exist!";
+	}; fi;
+	return $result;
 }
 
 # assumes the top-level source directory links have already been set up
@@ -66,7 +130,8 @@ handledir() {
 	log trace "-- pathrel is now \"${pathrel}\"";
 	log trace "-- symlinkrel is now \"${symlinkrel}\"";
 
-	currentconfig="${configdir}/${pathrel}";
+	local currentconfig="${configdir}/${pathrel}";
+	local currenttarget="${targetdir}/${pathrel}";
 	ls -1aU "${currentconfig}" | (
 		IFS='
 ';
@@ -81,23 +146,40 @@ handledir() {
 
 			log trace "handling entry ${entryname} under path ${pathrel}";
 			local currententry="${currentconfig}/${entryname}";
+
 			# argh, is there not a "what is this" command that I could have a switch case on
 			if test -d "${currententry}"; then {
-				log trace "${entryname}: subdivide directory, recursing";
+				log trace "${entryname}: subdivide directory, creating directory and recursing";
+				trymkdir "${currenttarget}/${entryname}";
 				handledir "${configdir}" "${targetdir}" "${pathrel}/${entryname}" "${symlinkrel}/..";
 				log trace "handling subdir ${entryname} returned, back at \"${pathrel}\" (symlink rel is \"${symlinkrel}\")";
 			}; else {
 				if test -f "${currententry}"; then {
-					log trace "${entryname}: direct link";
-					tryln "./${symlinkrel}/.linkfarm.source" "${targetdir}/${pathrel}/${entryname}";
+					# determine if the entry is a blank or a source identifier
+					tryread "${currententry}" source
+					log trace "source label for entry ${entryname} is \"${source}\"";
+					if test -n "$source"; then {
+						log trace "trying to creating source link";
+						# ... but check the source is valid first (note this is rel. to top-level gen dir)
+						if ! checksource "${targetdir}" "${source}"; then {
+							fatal "$source was not in source set!";
+						}; fi;
+						tryln "./${symlinkrel}/.linkfarm.source/${source}/${pathrel}/${entryname}" "${currenttarget}/${entryname}";
+					}; else {
+						log trace "making note of blanking entry";
+						local ignoredir="${currenttarget}/.linkfarm.ignore";
+						trymkdirdup "${ignoredir}";
+						trytouch "${ignoredir}/${entryname}";
+					}; fi;
 				}; else {
 					log error "unrecognised entity type for config entry ${currententry}";
 				}; fi;
 			}; fi;
 		}; done;
-	);
+	) || exit $?;
 
 	log trace "-- handling directory ${pathrel} complete";
 }
 
+createmasterlinks "$opt_sourcelinkdir" "$opt_targetdir";
 handledir "$opt_configdir" "$opt_targetdir" "." "";
