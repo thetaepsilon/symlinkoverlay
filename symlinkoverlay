@@ -103,6 +103,7 @@ createmasterlinks() {
 			tryln "${sourcepath}" "${linkfile}";
 		}; done;
 	) || exit $?;
+	# exit $? is needed to propogate fatal() out of the subshell.
 	log trace "-- createmasterlinks() complete";
 }
 
@@ -185,7 +186,29 @@ handledir() {
 	local autosourcepath="${currentconfig}/${pathname_autosource}";
 	if test -e "${autosourcepath}"; then {
 		tryread "${autosourcepath}" "autosourceselect";
-		log warning "current directory ${pathrel} requested autosource generation from source ${autosourceselect}, stub!";
+		log trace "starting autosource generation for directory ${pathrel} from source ${autosourceselect}";
+		ls -1aU "${targetdir}/${pathname_sourcelinks}/${autosourceselect}/${pathrel}" | (
+			IFS='
+';
+			while read -r autogenentry; do {
+				case "$autogenentry" in
+				.)	continue;;
+				..)	continue;;
+				${pathname_prefix}*)
+					continue;;
+				esac
+				if ! test -e "${currenttarget}/${autogenentry}"; then {
+					if ! test -e "${currenttarget}/${pathname_ignore}/${autogenentry}"; then {
+						tryln "./${symlinkrel}/${pathname_sourcelinks}/${autosourceselect}/${pathrel}/${autogenentry}" "${currenttarget}/${autogenentry}"
+						# log warning "autogen: creating entry for ${autogenentry} under ${pathrel}, stub!";
+					}; else {
+						log trace "autogen: ${autogenentry} has an ignore record under ${pathrel}, skipping";
+					}; fi;
+				}; else {
+					log trace "autogen: ${autogenentry} already exists at ${pathrel}, skipped";
+				}; fi;
+			}; done;
+		) || exit $?;
 	}; fi;
 
 	log trace "-- handling directory ${pathrel} complete";
