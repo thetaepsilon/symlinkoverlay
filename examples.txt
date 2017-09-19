@@ -1,0 +1,65 @@
+
+${source_linkpath_directory}
+	// this directory is passed to the main script and is separate from the config dir;
+	// it allows for the source directories to be stored and changed independently of the config dir
+	// (e.g. if one of the source dirs is moved).
+	// it contains symlinks whose names are used as source identifiers,
+	// and the targets are used as the targets of generated symlinks.
+	source1 -> /dir1
+	source2 -> /dir2
+	source3 -> /dir3
+	// and so on
+
+/etc/	(generated result directory)
+	// top-level generated dirs have a link to all sources.
+	// this should be an absolute symlink where possible as it *will* be overwritten.
+	// all other links indirectly point through this one.
+	.linkfarm.source/{source1, source2, ...} -> (targets paths as configured in source_linkpath_directory)
+	// dir is set to auto-generate links for the contents of one source directory...
+	[${config_dir}/.linkfarm.autosource = "source1"]
+	// auto-gen links follow
+	passwd -> .linkfarm.source/source1/passwd
+	nsswitch.conf -> .linkfarm.source/source1/nsswitch.conf
+	// etc.
+	// however, if the config dir contains specific entries for given files/directories,
+	// the auto-gen procedure will not generate those if it otherwise would have.
+	// therefore, the *specific* entries are run first,
+	// then the auto-gen procedure tests for the abscence of it's files from the previous step.
+	// therefore it is assumed the generator output directory has been nuked beforehand.
+	
+	// a file in the config dir at this path is expected to contain a source name;
+	// in this case, the file or directory with that name from the given source is directly symlinked.
+	[${config_dir_for_etc}/{systemd, os-release} = "source2"]
+	systemd -> .linkfarm.source/source2/systemd
+	os-release -> .linkfarm.source/source2/os-release
+
+	// an empty file means "blank this entry".
+	// no file or folder will be created here, even automatically.
+	// however to aid the autogen step in detecting this,
+	// blank files of the form .linkfarm.ignore/${entryname} are created as indicators.
+	// the autogen step will check for these also before deciding to create an automatic symlink.
+	[${config_dir}/sudoers = <empty file>]
+	.linkfarm.ignore/sudoers = <blank file>
+
+	// a directory in the config dir causes a directory to be created in the target dir.
+	// this directory stands alone and doesn't "belong" to any of the sources;
+	// it is expected to contain entries in the same form as the top-level config dir,
+	// which will in turn either be linked to something in the source or further "subdivided".
+	[${config_dir}/X11 = <directory>]
+	
+	X11/
+		// now we recurse into the directory.
+		// we now have a variable "pathrel" to track which part of the dir hierachy we're in.
+		// in this case, it goes from being blank (for the top-level dir) to "X11/" (note trailing slash to make the recursion code easier).
+		// we also get a var "symlinkrel" which has "../" appended, used for creating indirect symlinks to the source directories.
+		// otherwise, the process repeats pretty much as before.
+		[${config_dir}/${pathrel}/.linkfarm.autosource = "source3"
+		xinit -> ./${symlinkrel}/.linkfarm.source/source3/${pathrel}/xinit
+		// which resolves to (duplicate slashes I know) ./..//.linkfarm.source/source3/X11//xinit
+
+		[${config_dir/${pathrel}/xorg.conf.d = <directory>]
+		[further recursion skipped...]
+	
+	// auto-generation only occurs *after* all subdivided directories have been completely populated (this includes their autogens).
+
+

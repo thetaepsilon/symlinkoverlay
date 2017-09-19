@@ -1,0 +1,103 @@
+#!/bin/sh
+
+progname="symlinkoverlay";
+if test $# -lt 3; then {
+	echo "Usage: $progname sourcelinkdir configdir targetdir <options>..." >&2;
+	exit 1;
+}; fi;
+opt_sourcelinkdir="$1";
+opt_configdir="$2";
+opt_targetdir="$3";
+shift 3;
+
+log() {
+	local loglevel="$1"; shift;
+	echo "[$progname] [$loglevel]" "$@" >&2;
+}
+fatal() {
+	log fatal "$@";
+	exit 2;
+}
+
+helpdesc() {
+	echo "help: displays this help";
+	echo "clean: removes *all* files and dotfiles recursively from the gen directory before starting";
+	printf "\trecommended but please ensure the target directory is empty;\n";
+	printf "\tany existing files should have items created for them in the config dir.\n";
+	exit 0;
+}
+
+for opt in "$@"; do {
+	case "$opt" in
+	"help") 	helpdesc;;
+	"clean")	cleanmode=1;;
+	esac
+}; done;
+
+
+
+validateopts() {
+	test -d "$opt_sourcelinkdir" || return 1;
+	test -d "$opt_configdir" || return 1;
+	test -d "$opt_targetdir" || return 1;
+}
+
+# UNFINISHED just debugging
+tryln() {
+	log trace "$2" " points to " "$1";
+}
+
+handleclean() {
+	if test -n "$cleanmode"; then {
+		log warning "cleaning target dir requested, stub!"
+	}; fi;
+}
+
+# assumes the top-level source directory links have already been set up
+handledir() {	
+	local configdir="$1";
+	local targetdir="$2";
+	local pathrel="$3";
+	local symlinkrel="$4";
+
+	log trace "-- handledir() entry"
+	log trace "-- configdir is ${configdir}";
+	log trace "-- targetdir is ${targetdir}";
+	log trace "-- pathrel is now \"${pathrel}\"";
+	log trace "-- symlinkrel is now \"${symlinkrel}\"";
+
+	currentconfig="${configdir}/${pathrel}";
+	ls -1aU "${currentconfig}" | (
+		IFS='
+';
+		while read -r entryname; do {
+			# make sure not to accidentally handle reserved entries or . or ..
+			case "$entryname" in
+			.)	continue;;
+			..)	continue;;
+			.linkfarm.*)
+				continue;;
+			esac
+
+			log trace "handling entry ${entryname} under path ${pathrel}";
+			local currententry="${currentconfig}/${entryname}";
+			# argh, is there not a "what is this" command that I could have a switch case on
+			if test -d "${currententry}"; then {
+				log trace "${entryname}: subdivide directory, recursing";
+				handledir "${configdir}" "${targetdir}" "${pathrel}/${entryname}" "${symlinkrel}/..";
+				log trace "handling subdir ${entryname} returned, back at \"${pathrel}\" (symlink rel is \"${symlinkrel}\")";
+			}; else {
+				if test -f "${currententry}"; then {
+					log trace "${entryname}: direct link";
+					tryln "./${symlinkrel}/.linkfarm.source" "${targetdir}/${pathrel}/${entryname}";
+				}; else {
+					log error "unrecognised entity type for config entry ${currententry}";
+				}; fi;
+			}; fi;
+		}; done;
+	);
+
+	log trace "-- handling directory ${pathrel} complete";
+}
+
+handledir "$opt_configdir" "$opt_targetdir" "." "";
