@@ -42,15 +42,19 @@ validateopts() {
 	test -d "$opt_targetdir" || return 1;
 }
 
-# UNFINISHED just debugging
 tryln() {
 	log trace "creating symlink: " "$2" "points to" "$1";
 	ln -s "$1" "$2" || fatal "unable to create symlink!";
 }
 
 handleclean() {
+	local targetdir="$1";
 	if test -n "$cleanmode"; then {
-		log warning "cleaning target dir requested, stub!"
+		log trace "-- target dir cleanup requested!";
+		# YOU HAVE BEEN WARNED
+		# this tool is intended to completely wipe state and refresh anew,
+		# so please don't run this on an in-use directory...
+		(cd "${targetdir}" && find "." -delete || exit 1) || fatal "target dir directory cleanup failed"; 
 	}; fi;
 }
 
@@ -70,11 +74,11 @@ trytouch() {
 }
 
 trymkdirdup() {
-	mkdir -p "$1" || fatal "unable to create directory at $path";
+	mkdir -p "$1" || fatal "unable to create directory at $1";
 }
 
 trymkdir() {
-	mkdir "$1" || fatal "unable to create directory at $path";
+	mkdir "$1" || fatal "unable to create directory at $1";
 }
 
 # some constant path names that will be referenced a lot below.
@@ -214,5 +218,7 @@ handledir() {
 	log trace "-- handling directory ${pathrel} complete";
 }
 
+handleclean "$opt_targetdir";
+test -d "$opt_targetdir" || log warning "target directory doesn't seem to exist?";
 createmasterlinks "$opt_sourcelinkdir" "$opt_targetdir";
 handledir "$opt_configdir" "$opt_targetdir" "." "";
