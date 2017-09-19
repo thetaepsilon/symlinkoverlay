@@ -97,7 +97,7 @@ createmasterlinks() {
 	local linkoutput="${targetdir}/${pathname_sourcelinks}";
 	trymkdir "${linkoutput}";
 	log trace "-- link output directory is ${linkoutput}";
-	ls -1U "${sourcelinkdir}" | (
+	ls -1 -- "${sourcelinkdir}" | (
 		IFS='
 ';
 		while read -r sourcename; do {
@@ -140,7 +140,7 @@ handledir() {
 
 	local currentconfig="${configdir}/${pathrel}";
 	local currenttarget="${targetdir}/${pathrel}";
-	ls -1aU "${currentconfig}" | (
+	ls -1a -- "${currentconfig}" | (
 		IFS='
 ';
 		while read -r entryname; do {
@@ -191,7 +191,7 @@ handledir() {
 	if test -e "${autosourcepath}"; then {
 		tryread "${autosourcepath}" "autosourceselect";
 		log trace "starting autosource generation for directory ${pathrel} from source ${autosourceselect}";
-		ls -1aU "${targetdir}/${pathname_sourcelinks}/${autosourceselect}/${pathrel}" | (
+		ls -1a -- "${targetdir}/${pathname_sourcelinks}/${autosourceselect}/${pathrel}" | (
 			IFS='
 ';
 			while read -r autogenentry; do {
