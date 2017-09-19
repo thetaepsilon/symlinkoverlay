@@ -182,8 +182,10 @@ handledir() {
 	) || exit $?;
 
 	# now check if there is an autosource entry in place and generate entries as appropriate.
-	if test -e "${currentconfig}/${pathname_autosource}"; then {
-		log warning "current directory ${pathrel} requested autosource generation, stub!";
+	local autosourcepath="${currentconfig}/${pathname_autosource}";
+	if test -e "${autosourcepath}"; then {
+		tryread "${autosourcepath}" "autosourceselect";
+		log warning "current directory ${pathrel} requested autosource generation from source ${autosourceselect}, stub!";
 	}; fi;
 
 	log trace "-- handling directory ${pathrel} complete";
